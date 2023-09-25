@@ -8,9 +8,5 @@ Solved in 3256 steps
 Start state: 0, End state: 21
 
 Value Iteration
-Solved in 2024 steps
-Start state: 0, End state: 21
-
-Async Dynamic Programming
-Solved in 1848 steps
+Solved in 1144 steps
 Start state: 0, End state: 21
