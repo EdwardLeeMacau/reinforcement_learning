@@ -131,7 +131,7 @@ class PolicyIteration(DynamicProgramming):
             float
         """
         # TODO: Get the value for a state by calculating the q-values
-        return self.values[state]
+        return np.max([self.Q(state, a) for a in range(self.grid_world.get_action_space())])
 
     def policy_evaluation(self):
         """Evaluate the policy and update the values"""
@@ -140,7 +140,7 @@ class PolicyIteration(DynamicProgramming):
 
         while delta >= self.threshold:
             for s in range(self.grid_world.get_state_space()):
-                v[s] = self.Q(s, self.policy[s])
+                v[s] = self.get_state_value(s)
 
             delta, self.values = np.max(np.abs(v - self.values)), v
 
@@ -252,7 +252,7 @@ class AsyncDynamicProgramming(DynamicProgramming):
 
         policy_improvement()
 
-    def run_proritized_sweeping(self) -> None:
+    def run_prioritized_sweeping(self) -> None:
         raise NotImplementedError
 
     def run_real_time_dynamic_programming(self) -> None:
@@ -261,15 +261,15 @@ class AsyncDynamicProgramming(DynamicProgramming):
     def run(self) -> None:
         """Run the algorithm until convergence"""
         # TODO: Implement the async dynamic programming algorithm until convergence
-        PRORITIZED_SWEEPING = 'proritized_sweeping'
+        PRIORITIZED_SWEEPING = 'prioritized_sweeping'
         INPLACE_DYNAMIC_PROGRAMMING = 'inplace_dynamic_programming'
         REALTIME_DYNAMIC_PROGRAMMING = 'real_time_dynamic_programming'
 
         f = {
+            PRIORITIZED_SWEEPING: self.run_prioritized_sweeping,
             INPLACE_DYNAMIC_PROGRAMMING: self.run_inplace_dynamic_programming,
-            PRORITIZED_SWEEPING: self.run_proritized_sweeping,
             REALTIME_DYNAMIC_PROGRAMMING: self.run_real_time_dynamic_programming,
         }
 
-        algorithm = f[INPLACE_DYNAMIC_PROGRAMMING]
-        return algorithm()
+        learner = f[INPLACE_DYNAMIC_PROGRAMMING]
+        return learner()
