@@ -3,6 +3,7 @@
 ################################################################################
 
 CP = cp
+TAR = tar
 ZIP = zip
 MKDIR = mkdir
 ZIPINFO = zipinfo
@@ -35,11 +36,11 @@ CLEAN_DIRS += r11922001
 
 # -----------------------------------------------------------------------------
 
-.PHONY: tests.zip
+.PHONY: tests.tgz
 
-TARGET_BIN := tests.zip
+TARGET_BIN := tests.tgz
 $(TARGET_BIN): tests
-	$(Q)$(ZIP) -r $@ $^
+	$(Q)$(TAR) -zcvf $@ $^
 
 TARGET_TESTS += $(TARGET_BIN)
 CLEAN_BINS += $(TARGET_BIN)
@@ -65,7 +66,7 @@ default: $(TARGET_BINS)
 	$(Q)$(ZIPINFO) r11922001.zip
 
 .PHONY: test
-test: tests.zip
+test: tests.tgz
 
 .PHONY: clean
 clean:
