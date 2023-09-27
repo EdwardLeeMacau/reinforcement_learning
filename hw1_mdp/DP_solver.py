@@ -1,4 +1,6 @@
 import heapq
+import os
+import pickle
 
 import numpy as np
 
@@ -21,6 +23,18 @@ class DynamicProgramming:
         self.values = np.zeros(grid_world.get_state_space())  # V(s)
         self.policy = np.zeros(grid_world.get_state_space(), dtype=int)  # pi(s)
         self.Q = self.get_q_value
+
+    def _dump(self, dirname: str) -> None:
+        """Dump the values and policy
+
+        Args:
+            dirname (str): directory name
+        """
+        with open(os.path.join(dirname, f"values.pkl"), "wb") as f:
+            pickle.dump(self.values, f)
+
+        with open(os.path.join(dirname, f"policy.pkl"), "wb") as f:
+            pickle.dump(self.policy, f)
 
     def set_threshold(self, threshold: float) -> None:
         """Set the threshold for convergence
@@ -131,7 +145,8 @@ class PolicyIteration(DynamicProgramming):
             float
         """
         # TODO: Get the value for a state by calculating the q-values
-        return np.max([self.Q(state, a) for a in range(self.grid_world.get_action_space())])
+        return self.Q(state, self.policy[state])
+        # return np.max([self.Q(state, a) for a in range(self.grid_world.get_action_space())])
 
     def policy_evaluation(self):
         """Evaluate the policy and update the values"""
@@ -161,11 +176,9 @@ class PolicyIteration(DynamicProgramming):
     def run(self) -> None:
         """Run the algorithm until convergence"""
         # TODO: Implement the policy iteration algorithm until convergence
-        run = True
-
-        while run:
+        self.policy_evaluation()
+        while self.policy_improvement():
             self.policy_evaluation()
-            run = self.policy_improvement()
 
 
 class ValueIteration(DynamicProgramming):
