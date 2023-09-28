@@ -1,3 +1,6 @@
+import argparse
+import os
+
 import numpy as np
 
 from DP_solver import (
@@ -32,7 +35,12 @@ def red(s):
     return "\033[91m" + str(s) + "\033[0m"
 
 
+dirname = ""
 def init_grid_world(maze_file: str = "maze.txt"):
+    global dirname
+
+    dirname = os.path.dirname(maze_file)
+    stem, _ = os.path.splitext(os.path.basename(maze_file))
     print(bold(underline("Grid World")))
     grid_world = GridWorld(
         maze_file,
@@ -41,12 +49,19 @@ def init_grid_world(maze_file: str = "maze.txt"):
         trap_reward=TRAP_REWARD,
     )
     grid_world.print_maze()
-    grid_world.visualize(title="Maze", filename="maze.png", show=False)
+    grid_world.visualize(
+        title="Maze", filename=os.path.join(dirname, f"{stem}.png"), show=False
+    )
     print()
     return grid_world
 
 
 def run_policy_evaluation(grid_world: GridWorld):
+    global dirname
+
+    _dirname = os.path.join(dirname, 'iterative_policy_evaluation')
+    os.makedirs(_dirname, exist_ok=True)
+
     print(bold(underline("Iterative Policy Evaluation")))
     policy = np.ones((grid_world.get_state_space(), 4)) / 4
 
@@ -54,12 +69,13 @@ def run_policy_evaluation(grid_world: GridWorld):
         grid_world, policy, discount_factor=DISCOUNT_FACTOR
     )
     iterative_policy_evaluation.run()
+    iterative_policy_evaluation._dump(_dirname)
 
     grid_world.visualize(
         iterative_policy_evaluation.values,
         title=f"Iterative Policy Evaluation",
         show=False,
-        filename=f"iterative_policy_evaluation.png",
+        filename=os.path.join(_dirname, f"iterative_policy_evaluation.png"),
     )
     print(f"Solved in {bold(green(grid_world.get_step_count()))} steps")
     grid_world.reset()
@@ -67,15 +83,21 @@ def run_policy_evaluation(grid_world: GridWorld):
 
 
 def run_policy_iteration(grid_world: GridWorld):
+    global dirname
+
+    _dirname = os.path.join(dirname, 'policy_iteration')
+    os.makedirs(_dirname, exist_ok=True)
+
     print(bold(underline("Policy Iteration")))
     policy_iteration = PolicyIteration(grid_world, discount_factor=DISCOUNT_FACTOR)
     policy_iteration.run()
+    policy_iteration._dump(_dirname)
     grid_world.visualize(
         policy_iteration.values,
         policy_iteration.policy,
         title=f"Policy Iteration",
         show=False,
-        filename=f"policy_iteration.png",
+        filename=os.path.join(_dirname, f"policy_iteration.png"),
     )
     print(f"Solved in {bold(green(grid_world.get_step_count()))} steps")
     history = grid_world.run_policy(policy_iteration.policy, 0)
@@ -87,15 +109,21 @@ def run_policy_iteration(grid_world: GridWorld):
 
 
 def run_value_iteration(grid_world: GridWorld):
+    global dirname
+
+    _dirname = os.path.join(dirname, 'value_iteration')
+    os.makedirs(_dirname, exist_ok=True)
+
     print(bold(underline("Value Iteration")))
     value_iteration = ValueIteration(grid_world, discount_factor=DISCOUNT_FACTOR)
     value_iteration.run()
+    value_iteration._dump(_dirname)
     grid_world.visualize(
         value_iteration.values,
         value_iteration.policy,
         title=f"Value Iteration",
         show=False,
-        filename=f"value_iteration.png",
+        filename=os.path.join(_dirname, f"value_iteration.png"),
     )
     print(f"Solved in {bold(green(grid_world.get_step_count()))} steps")
     history = grid_world.run_policy(value_iteration.policy, 0)
@@ -107,6 +135,11 @@ def run_value_iteration(grid_world: GridWorld):
 
 
 def run_async_dynamic_programming(grid_world: GridWorld):
+    global dirname
+
+    _dirname = os.path.join(dirname, 'async_dynamic_programming')
+    os.makedirs(_dirname, exist_ok=True)
+
     print(bold(underline("Async Dynamic Programming")))
     async_dynamic_programming = AsyncDynamicProgramming(
         grid_world, discount_factor=DISCOUNT_FACTOR
@@ -117,7 +150,7 @@ def run_async_dynamic_programming(grid_world: GridWorld):
         async_dynamic_programming.policy,
         title=f"Async Dynamic Programming",
         show=False,
-        filename=f"async_dynamic_programming.png",
+        filename=os.path.join(_dirname, f"async_dynamic_programming.png"),
     )
     print(f"Solved in {bold(green(grid_world.get_step_count()))} steps")
     history = grid_world.run_policy(async_dynamic_programming.policy, 0)
@@ -129,7 +162,16 @@ def run_async_dynamic_programming(grid_world: GridWorld):
 
 
 if __name__ == "__main__":
-    grid_world = init_grid_world()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--maze_file",
+        type=str,
+        default="maze.txt",
+        help="Path to the maze file",
+    )
+    args = parser.parse_args()
+
+    grid_world = init_grid_world(args.maze_file)
     run_policy_evaluation(grid_world)
     run_policy_iteration(grid_world)
     run_value_iteration(grid_world)
