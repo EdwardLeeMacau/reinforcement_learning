@@ -1,3 +1,4 @@
+import random
 import numpy as np
 from collections import deque
 from gridworld import GridWorld
@@ -17,8 +18,8 @@ class DynamicProgramming:
         self.discount_factor = discount_factor
         self.action_space = grid_world.get_action_space()
         self.state_space  = grid_world.get_state_space()
-        self.q_values     = np.zeros((self.state_space, self.action_space))  
-        self.policy       = np.ones((self.state_space, self.action_space)) / self.action_space 
+        self.q_values     = np.zeros((self.state_space, self.action_space))
+        self.policy       = np.ones((self.state_space, self.action_space)) / self.action_space
         self.policy_index = np.zeros(self.state_space, dtype=int)
 
     def get_policy_index(self) -> np.ndarray:
@@ -30,7 +31,7 @@ class DynamicProgramming:
         for s_i in range(self.state_space):
             self.policy_index[s_i] = self.q_values[s_i].argmax()
         return self.policy_index
-    
+
     def get_max_state_values(self) -> np.ndarray:
         max_values = np.zeros(self.state_space)
         for i in range(self.state_space):
@@ -57,9 +58,9 @@ class MonteCarloPolicyIteration(DynamicProgramming):
     def policy_evaluation(self, state_trace, action_trace, reward_trace) -> None:
         """Evaluate the policy and update the values after one episode"""
         # TODO: Evaluate state value for each Q(s,a)
-        
+
         raise NotImplementedError
-        
+
 
     def policy_improvement(self) -> None:
         """Improve policy based on Q(s,a) after one episode"""
@@ -79,7 +80,7 @@ class MonteCarloPolicyIteration(DynamicProgramming):
         while iter_episode < max_episode:
             # TODO: write your code here
             # hint: self.grid_world.reset() is NOT needed here
-            
+
             raise NotImplementedError
 
 
@@ -101,7 +102,7 @@ class SARSA(DynamicProgramming):
     def policy_eval_improve(self, s, a, r, s2, a2, is_done) -> None:
         """Evaluate the policy and update the values after one step"""
         # TODO: Evaluate Q value after one step and improve the policy
-        
+
         raise NotImplementedError
 
     def run(self, max_episode=1000) -> None:
