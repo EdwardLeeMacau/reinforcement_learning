@@ -1,0 +1,11 @@
+# Intermediate folders
+r11922001
+
+# Intermediate files
+**.npy
+**.pkl
+**.png
+**.tgz
+
+# Packed files
+**.zip
