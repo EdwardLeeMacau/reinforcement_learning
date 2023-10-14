@@ -3,6 +3,10 @@ import numpy as np
 from collections import deque
 from gridworld import GridWorld
 
+from typing import List
+
+# Type hinting
+State, Action, Reward = int, int, float
 
 class DynamicProgramming:
     """Base class for dynamic programming algorithms"""
@@ -21,6 +25,18 @@ class DynamicProgramming:
         self.q_values     = np.zeros((self.state_space, self.action_space))
         self.policy       = np.ones((self.state_space, self.action_space)) / self.action_space
         self.policy_index = np.zeros(self.state_space, dtype=int)
+
+    def sample_action(self, state: State) -> Action:
+        """Sample action from Q(s,a) using epsilon-greedy
+
+        Args:
+            state (State): state
+
+        Returns:
+            Action: action
+        """
+        actions = range(self.action_space)
+        return random.choice(actions) if random.random() < self.epsilon else self.policy_index[state]
 
     def get_policy_index(self) -> np.ndarray:
         """Return the policy
@@ -55,18 +71,20 @@ class MonteCarloPolicyIteration(DynamicProgramming):
         self.lr      = learning_rate
         self.epsilon = epsilon
 
-    def policy_evaluation(self, state_trace, action_trace, reward_trace) -> None:
+    def policy_evaluation(self, state_trace: List[State], action_trace: List[Action], reward_trace: List[Reward]) -> None:
         """Evaluate the policy and update the values after one episode"""
         # TODO: Evaluate state value for each Q(s,a)
 
-        raise NotImplementedError
-
+        G, trajectory = 0, [(s, a, r) for s, a, r in zip(state_trace, action_trace, reward_trace)][::-1]
+        for s, a, r in trajectory:
+            G = self.discount_factor * G + r
+            self.q_values[s, a] += self.lr * (G - self.q_values[s, a])
 
     def policy_improvement(self) -> None:
         """Improve policy based on Q(s,a) after one episode"""
         # TODO: Improve the policy
 
-        raise NotImplementedError
+        return self.get_policy_index()
 
 
     def run(self, max_episode=1000) -> None:
@@ -81,7 +99,30 @@ class MonteCarloPolicyIteration(DynamicProgramming):
             # TODO: write your code here
             # hint: self.grid_world.reset() is NOT needed here
 
-            raise NotImplementedError
+            # Sample action from epsilon-greedy policy
+            action = self.sample_action(current_state)
+            next_state, reward, done = self.grid_world.step(action)
+
+            # Add A_{t}, R_{t+1}, S_{t+1} into trace
+            state_trace.append(next_state)
+            action_trace.append(action)
+            reward_trace.append(reward)
+
+            # Update current state
+            current_state = next_state
+
+            # if the trajectory is done, then evaluate the policy and improve it
+            # also reset the trajectory
+            if not done:
+                continue
+
+            iter_episode += 1
+            self.policy_evaluation(state_trace, action_trace, reward_trace)
+            self.policy_improvement()
+
+            state_trace  = [current_state]
+            action_trace = []
+            reward_trace = []
 
 
 class SARSA(DynamicProgramming):
