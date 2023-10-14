@@ -144,22 +144,43 @@ class SARSA(DynamicProgramming):
         """Evaluate the policy and update the values after one step"""
         # TODO: Evaluate Q value after one step and improve the policy
 
-        raise NotImplementedError
+        next_value = (self.q_values[s2, a2] if not is_done else 0)
+        temporal_difference_error = \
+            r + self.discount_factor * next_value - self.q_values[s, a]
+
+        self.q_values[s, a] += self.lr * temporal_difference_error
+        self.policy_index[s] = self.q_values[s].argmax()
 
     def run(self, max_episode=1000) -> None:
         """Run the algorithm until convergence."""
         # TODO: Implement the TD policy evaluation with epsilon-greedy
         iter_episode = 0
         current_state = self.grid_world.reset()
-        prev_s = None
-        prev_a = None
+        prev_s = current_state
+        prev_a = self.sample_action(prev_s)
         prev_r = None
         is_done = False
         while iter_episode < max_episode:
             # TODO: write your code here
             # hint: self.grid_world.reset() is NOT needed here
 
-            raise NotImplementedError
+            # Sample action from epsilon-greedy policy
+            current_state, reward, done = self.grid_world.step(prev_a)
+
+            # Choose next action from epsilon-greedy policy
+            action = self.sample_action(current_state)
+
+            # Update Q(s,a) after one step
+            self.policy_eval_improve(prev_s, prev_a, reward, current_state, action, done)
+
+            # Update current state
+            prev_s, prev_a = current_state, action
+
+            # if the trajectory is done, then reset the trajectory
+            if not done:
+                continue
+
+            iter_episode += 1
 
 
 class Q_Learning(DynamicProgramming):
