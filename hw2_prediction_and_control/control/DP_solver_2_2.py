@@ -203,30 +203,61 @@ class Q_Learning(DynamicProgramming):
 
     def add_buffer(self, s, a, r, s2, d) -> None:
         # TODO: add new transition to buffer
-        raise NotImplementedError
+        self.buffer.append((s, a, r, s2, d))
 
-    def sample_batch(self) -> np.ndarray:
+    def sample_batch(self) -> List:
         # TODO: sample a batch of index of transitions from the buffer
-        raise NotImplementedError
+        n = min(self.sample_batch_size, len(self.buffer))
+        return [self.buffer[i] for i in random.sample(range(len(self.buffer)), n)]
 
     def policy_eval_improve(self, s, a, r, s2, is_done) -> None:
         """Evaluate the policy and update the values after one step"""
         #TODO: Evaluate Q value after one step and improve the policy
-        raise NotImplementedError
+        # NOTE: take max over all actions here
+        next_value = self.q_values[s2].max() if not is_done else 0
+        temporal_difference_error = \
+            r + self.discount_factor * next_value - self.q_values[s, a]
+
+        self.q_values[s, a] += self.lr * temporal_difference_error
+        self.policy_index[s] = self.q_values[s].argmax()
 
     def run(self, max_episode=1000) -> None:
         """Run the algorithm until convergence."""
         # TODO: Implement the Q_Learning algorithm
         iter_episode = 0
         current_state = self.grid_world.reset()
-        prev_s = None
+        prev_s = current_state
         prev_a = None
         prev_r = None
         is_done = False
+        samples = []
         transition_count = 0
         while iter_episode < max_episode:
             # TODO: write your code here
             # hint: self.grid_world.reset() is NOT needed here
 
-            raise NotImplementedError
+            # Sample action from epsilon-greedy policy
+            prev_a = self.sample_action(prev_s)
+            current_state, reward, done = self.grid_world.step(prev_a)
+
+            # Store the transition into buffer
+            self.add_buffer(prev_s, prev_a, reward, current_state, done)
+            transition_count += 1
+
+            # Uniformly sample a batch of transitions from buffer
+            if transition_count % self.update_frequency == 0:
+                samples = self.sample_batch()
+
+            # Update Q(s,a) after one step
+            for s, a, r, s2, d in samples:
+                self.policy_eval_improve(s, a, r, s2, d)
+
+            # Update current state
+            prev_s = current_state
+
+            # if the trajectory is done, then reset the trajectory
+            if not done:
+                continue
+
+            iter_episode += 1
 
