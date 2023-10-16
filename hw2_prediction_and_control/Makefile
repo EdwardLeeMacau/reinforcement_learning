@@ -52,9 +52,11 @@ CLEAN_BINS += $(TARGET_BIN)
 ################################################################################
 
 r11922001/DP_solver.py : prediction/DP_solver.py | r11922001
+	@echo "Updating $^ ..."
 	$(Q)$(CP) $^ $@
 
 r11922001/DP_solver_2_2.py : control/DP_solver_2_2.py | r11922001
+	@echo "Updating $^ ..."
 	$(Q)$(CP) $^ $@
 
 r11922001/Report.pdf : Report.pdf | r11922001

@@ -248,9 +248,9 @@ class Q_Learning(DynamicProgramming):
             if transition_count % self.update_frequency == 0:
                 samples = self.sample_batch()
 
-            # Update Q(s,a) after one step
-            for s, a, r, s2, d in samples:
-                self.policy_eval_improve(s, a, r, s2, d)
+                # Update Q(s,a) after one step
+                for s, a, r, s2, d in samples:
+                    self.policy_eval_improve(s, a, r, s2, d)
 
             # Update current state
             prev_s = current_state
