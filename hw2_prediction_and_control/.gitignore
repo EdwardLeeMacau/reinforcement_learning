@@ -9,3 +9,6 @@ r11922001
 
 # Packed files
 **.zip
+
+# wandb
+wandb/

@@ -1,11 +1,11 @@
 import numpy as np
 import json
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 from typing import List, Union, Tuple
 from gridworld import GridWorld
 
-import pysnooper
+# import pysnooper
 
 # Type hinting
 State, Reward = int, float
@@ -61,12 +61,12 @@ class MonteCarloPrediction(DynamicProgramming):
                 continue
 
             # Then, do the first-visit MC update for each state in the episode.
-            G, states = 0, [s for s, _ in episodes]
+            G, states = 0, Counter([s for s, _ in episodes])
             for s, r in episodes[::-1]:
                 G = self.discount_factor * G + r
 
-                states.pop()
-                if s not in states:
+                states[s] -= 1
+                if states[s] == 0:
                     self.returns[s].append(G)
                     self.values[s] = np.mean(self.returns[s])
 

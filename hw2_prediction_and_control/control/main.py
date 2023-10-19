@@ -53,7 +53,7 @@ def init_grid_world(maze_file: str = "maze.txt"):
 def run_MC_policy_iteration(grid_world: GridWorld, iter_num: int):
     print(bold(underline("MC Policy Iteration")))
     policy_iteration = MonteCarloPolicyIteration(
-            grid_world, 
+            grid_world,
             discount_factor=DISCOUNT_FACTOR,
             learning_rate=LEARNING_RATE,
             epsilon= EPSILON,
@@ -78,7 +78,7 @@ def run_MC_policy_iteration(grid_world: GridWorld, iter_num: int):
 def run_SARSA(grid_world: GridWorld, iter_num: int):
     print(bold(underline("SARSA Policy Iteration")))
     policy_iteration = SARSA(
-            grid_world, 
+            grid_world,
             discount_factor=DISCOUNT_FACTOR,
             learning_rate=LEARNING_RATE,
             epsilon= EPSILON,
@@ -103,7 +103,7 @@ def run_SARSA(grid_world: GridWorld, iter_num: int):
 def run_Q_Learning(grid_world: GridWorld, iter_num: int):
     print(bold(underline("Q_Learning Policy Iteration")))
     policy_iteration = Q_Learning(
-            grid_world, 
+            grid_world,
             discount_factor=DISCOUNT_FACTOR,
             learning_rate=LEARNING_RATE,
             epsilon= EPSILON,
