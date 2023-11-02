@@ -1,0 +1,8 @@
+# Intermediates
+_stable_baselines3_version
+data
+**.gif
+**.log
+**.png
+**.pth
+system_info.txt
