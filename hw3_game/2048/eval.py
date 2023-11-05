@@ -1,16 +1,20 @@
+import argparse
 import gymnasium as gym
 from gymnasium.envs.registration import register
 from stable_baselines3 import PPO
 
 import numpy as np
 from collections import Counter
+from matplotlib import pyplot as plt
+
+from stable_baselines3.common.base_class import BaseAlgorithm
 
 register(
     id='2048-eval',
     entry_point='envs:Eval2048Env'
 )
 
-def evaluation(env, model, render_last, eval_num=100):
+def evaluation(env, model: BaseAlgorithm, render_last: bool, eval_num=100):
     score = []
     highest = []
 
@@ -44,25 +48,43 @@ def evaluation(env, model, render_last, eval_num=100):
             obs, reward, done, _, info = env.step(action)
             env.render()
 
-        
+
     return score, highest
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--model-path', type=str, required=True, help='Path to model')
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    model_path = "models/sample_model/0"  # Change path name to load different models
+    args = parse_args()
+    model_path = args.model_path  # Change path name to load different models
     env = gym.make('2048-eval')
 
     ### Load model with SB3
     # Note: Model can be loaded with arbitrary algorithm class for evaluation
     # (You don't necessarily need to use PPO for training)
     model = PPO.load(model_path)
-    
+
     eval_num = 100
     score, highest = evaluation(env, model, True, eval_num)
 
+    ### Plot histogram
+    c = Counter(highest)
+
+    x = np.arange(10) + 1
+    y = [c[2 ** i] for i in x]
+
+    plt.bar(x, y)
+    plt.xticks(x, 2 ** x)
+    plt.xlabel("Best tile")
+    plt.ylabel("Fequency")
+    plt.title("Best tile distribution")
+    plt.savefig("best_tile.png")
+
     print("Avg_score:  ", np.sum(score)/eval_num)
     print("Avg_highest:", np.sum(highest)/eval_num)
-
 
     print(f"Counts: (Total of {eval_num} rollouts)")
     c = Counter(highest)

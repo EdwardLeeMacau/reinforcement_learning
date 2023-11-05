@@ -52,6 +52,9 @@ class My2048Env(gym.Env):
         # Maintain own idea of game score, separate from rewards
         self.score = 0
 
+        # Step count
+        self.steps = 0
+
         # Foul counts for illegal moves
         self.foul_count = 0
 
@@ -60,10 +63,10 @@ class My2048Env(gym.Env):
         # Suppose that the maximum tile is as if you have powers of 2 across the board.
         layers = self.squares
         self.observation_space = spaces.Box(0, 1, (layers, self.w, self.h), dtype=int)
-        
+
         # TODO: Set negative reward (penalty) for illegal moves (optional)
-        self.set_illegal_move_reward(0.)
-        
+        self.set_illegal_move_reward(-8.)
+
         self.set_max_tile(None)
 
         # Size of square for rendering
@@ -98,7 +101,7 @@ class My2048Env(gym.Env):
         """Perform one step of the game. This involves moving and adding a new tile."""
         logging.debug("Action {}".format(action))
         score = 0
-        done = None
+        done = False
         info = {
             'illegal_move': False,
             'highest': 0,
@@ -111,35 +114,66 @@ class My2048Env(gym.Env):
             assert score <= 2**(self.w*self.h)
             self.add_tile()
             done = self.isend()
+            self.steps += 1
+            # self.foul_count = 0
+
+            # Initial reward: merged tiles
             reward = float(score)
 
             # TODO: Add reward according to weighted states (optional)
-            weight = np.array([
-                    [0  , 0  , 0  , 0  ],
-                    [0  , 0  , 0  , 0  ],
-                    [0  , 0  , 0  , 0  ],
-                    [0  , 0  , 0  , 0  ]])
-            reward += 0
-            
+            # Encourage if the agent
+            # - retain more spaces for the future moves
+            #   => r_{n} ~ np.count_nonzero(...)
+            # - increase the highest value
+            #   => r_{n} ~ self.highest() - np.max(pre_state)
+            # weight = np.array([
+            #         [.2 , 0  , 0  , 0  ],
+            #         [0  , 0  , 0  , 0  ],
+            #         [0  , 0  , 0  , 0  ],
+            #         [0  , 0  , 0  , 0  ]])
+            corner = np.array([
+                [0, 0, 0, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]
+            ], dtype=bool)
+
+            # * Keep highest value in the corner => Reward
+            # *                        Otherwise => Penalty
+            b = np.any(self.Matrix[corner] == self.highest())
+            r = (2 * b - 1) * np.log2(self.highest())
+            reward += (+1.0) * r
+
+            # * The upper row is a pinned row => Reward
+            b = np.all(self.Matrix[0]) and np.all(self.Matrix[:-1] < self.Matrix[1:])
+            r = 1
+            reward += (+4.0) * b * r
+
+            # * Merge a higher tile, as early as possible
+            b = int(np.max(pre_state) < self.highest())
+            r = self.highest() * 2 ** (-self.steps / 64)
+            reward += (+1.0) * b * r
+
         except IllegalMove:
             logging.debug("Illegal move")
+            self.foul_count += 1
             info['illegal_move'] = True
             reward = self.illegal_move_reward
 
             # TODO: Modify this part for the agent to have a chance to explore other actions (optional)
-            done = True
+            done = (self.foul_count >= np.maximum(0, np.log2(self.highest()) - 4))
 
-        truncate = False
         info['highest'] = self.highest()
         info['score']   = self.score
 
         # Return observation (board state), reward, done, truncate and info dict
-        return stack(self.Matrix), reward, done, truncate, info
+        return stack(self.Matrix), reward, done, False, info
 
     def reset(self, seed=None, options=None):
         self.seed(seed=seed)
         self.Matrix = np.zeros((self.h, self.w), int)
         self.score = 0
+        self.steps = 0
         self.foul_count = 0
 
         logging.debug("Adding tiles")

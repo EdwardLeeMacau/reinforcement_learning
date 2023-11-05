@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Dict
+
 import warnings
 import gymnasium as gym
 from gymnasium.envs.registration import register
@@ -5,9 +8,18 @@ from gymnasium.envs.registration import register
 import wandb
 from wandb.integration.sb3 import WandbCallback
 
+import numpy as np
+import torch
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
+from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecVideoRecorder
 from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
+from torch import nn, Tensor
+from torch.nn import functional as F
 
 warnings.filterwarnings("ignore")
 register(
@@ -15,24 +27,130 @@ register(
     entry_point='envs:My2048Env'
 )
 
+def unstack(layered, layers=16):
+    """Convert a [layers, 4, 4] representation into [4, 4] with one layers for each value."""
+    # representation is what each layer represents
+    representation = (2 ** (torch.arange(layers, dtype=int, device=layered.device) + 1))
+
+    # layered is the flat board repeated layers times
+    flat = torch.permute(layered, (0, 2, 3, 1))
+
+    # Now set the values in the board to 1 or zero depending whether they match representation.
+    # Representation is broadcast across a number of axes
+    flat = torch.sum(flat * representation, axis=-1)
+    return flat
+
+class RotConv(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, length: int):
+        super().__init__()
+
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=(1, length))
+
+    def forward(self, x):
+        x1: Tensor = self.conv(x)
+        x2: Tensor = torch.rot90(
+            self.conv(torch.rot90(x, k=1, dims=(2, 3))), k=-1, dims=(2, 3)
+        )
+
+        return (x1, x2)
+
+class FeatureExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space):
+        # Hardcoded feature dim for other parts of the code
+        # super().__init__(observation_space, features_dim=8448 + 48 + 8)
+        super().__init__(observation_space, features_dim=256 + 48 + 8)
+
+        # 3x3 conv, 2x2 conv
+        # self.conv1 = nn.Conv2d(16, 128, kernel_size=3)
+        # self.conv2 = nn.Conv2d(128, 256, kernel_size=2)
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x: Tensor) -> Tensor:
+        # Utilities
+        n = x.shape[0]
+
+        # * Board occupancy (Raw features)
+        occupancy = torch.sum(x, dim=1, keepdim=True)                       # dim: (n, 1, 4, 4), rng: {0, 1}
+        flat = torch.log2(unstack(x))
+        flat[flat == -torch.inf] = 0                                        # dim: (n, 4, 4)   , rng: {0, 1, ..., 16}
+
+        # * Current max tile and pos (Raw features)
+        tile, _ = torch.max(flat.flatten(start_dim=1), dim=1)
+        tile = tile.to(torch.int64)                                         # dim: (n, )       , rng: {0, 1, ..., 15}
+
+        f1 = F.one_hot(tile, num_classes=16).float()                        # dim: (n, 16)     , rng: {0, 1}
+        f2 = torch.sum(x * f1.view(n, 16, 1, 1), dim=1, keepdim=True)       # dim: (n, 1, 4, 4), rng: {0, 1}
+
+        # * Check movability (Raw features)
+        # check if different in flat[:, :, i] and flat[:, :, i+1]
+        row = (~torch.logical_and(
+            torch.all(flat[:, :, :-1] != flat[:, :, 1:], dim=2),
+            torch.all(flat, dim=2)
+        )).to(dtype=torch.float32)                                          # dim: (n, 4)      , rng: {0, 1}
+        col = (~torch.logical_and(
+            torch.all(flat[:, :-1, :] != flat[:, 1:, :], dim=1),
+            torch.all(flat, dim=1)
+        )).to(dtype=torch.float32)                                          # dim: (n, 4)      , rng: {0, 1}
+
+        # * Aggregated features
+        f = torch.cat(
+            tuple(map(
+                lambda t: t.flatten(start_dim=1),
+                [occupancy, f1, f2, row, col]
+            )), dim=1
+        )                                                                   # dim: (n, 48 + 8)     , rng: {0, 1}
+
+        # * Learnable features
+        # x = self.conv1(x)
+        # x = self.relu(x)
+
+        # x = self.conv2(x)
+        # x = self.relu(x)
+
+        return torch.cat((x.flatten(start_dim=1), f), dim=1)
+
+class PolicyNetwork(ActorCriticPolicy):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args, **kwargs, use_expln=True,
+            features_extractor_class=FeatureExtractor,
+            net_arch={'pi': [256, 128, 64], 'vf': [256, 128, 64]}
+        )
+
+# Piecewise linear schedule for PPO clip parameter
+def clip_range(current_progress_remaining: float) -> float:
+    return 0.15 * current_progress_remaining + 0.05
+
 # Set hyper params (configurations) for training
+now = datetime.now().strftime("%Y%m%d-%H%M%S")
 my_config = {
-    "run_id": "example",
+    # Experiments
+    "run_id": "PPOv26",
+    "save_path": "models/PPOv26",
 
+    # Hyperparameters
     "algorithm": PPO,
-    "policy_network": "MlpPolicy",
-    "save_path": "models/sample_model",
+    "policy_network": PolicyNetwork,
 
-    "epoch_num": 5,
-    "timesteps_per_epoch": 100,
+    "learning_rate": 0.0003,                    # Learning rate
+    "n_epochs": 20,                             # Number of steps to optimize
+    "n_steps": 512,                             # Number of sample steps per update
+    "clip_range": 0.2,                          # PPO clip range
+    "batch_size": 64,                           # Mini-batch size
+
+    "gamma": 0.99,                              # MDP discount factor
+    "epoch_num": 1000,
+    "log_interval": 10000,                      # Log interval
+    "timesteps_per_epoch": 20480,
     "eval_episode_num": 10,
 }
 
 def make_env():
     env = gym.make('2048-v0')
-    return env
+    return Monitor(env, filename=None, allow_early_resets=True)
 
-def train(env, model, config):
+def train(env, model: BaseAlgorithm, config: Dict):
 
     current_best = 0
 
@@ -43,9 +161,15 @@ def train(env, model, config):
         model.learn(
             total_timesteps=config["timesteps_per_epoch"],
             reset_num_timesteps=False,
-            # callback=WandbCallback(
-            #     gradient_save_freq=100,
-            #     verbose=2,
+            # callback=EvalCallback(
+            #     eval_env=env,
+            #     eval_freq=config["log_interval"],
+            #     n_eval_episodes=config["eval_episode_num"],
+            #     deterministic=True,
+            #     render=True,
+            #     # eval_episodic_rewards=True,
+            #     verbose=1,
+            #     # best_model_save_path=config["save_path"],
             # ),
         )
 
@@ -65,18 +189,13 @@ def train(env, model, config):
             while not done:
                 action, _state = model.predict(obs, deterministic=True)
                 obs, reward, done, info = env.step(action)
-            
+
             avg_highest += info[0]['highest']/config["eval_episode_num"]
             avg_score   += info[0]['score']/config["eval_episode_num"]
-        
+
         print("Avg_score:  ", avg_score)
         print("Avg_highest:", avg_highest)
         print()
-        # wandb.log(
-        #     {"avg_highest": avg_highest,
-        #      "avg_score": avg_score}
-        # )
-        
 
         ### Save best model
         if current_best < avg_score:
@@ -98,14 +217,37 @@ if __name__ == "__main__":
     #     id=my_config["run_id"]
     # )
 
+    # TODO: Parallelize training envs
+    train_env = DummyVecEnv([make_env for _ in range(8)])
     env = DummyVecEnv([make_env])
 
     # Create model from loaded config and train
     # Note: Set verbose to 0 if you don't want info messages
-    model = my_config["algorithm"](
-        my_config["policy_network"], 
-        env, 
+    model = PPO(
+        policy=my_config["policy_network"],
+        env=train_env,
+        learning_rate=my_config["learning_rate"],
+        n_epochs=my_config["n_epochs"],
+        gamma=my_config["gamma"],
+        n_steps=my_config["n_steps"],
+        clip_range=my_config["clip_range"],
+        batch_size=my_config["batch_size"],
         verbose=1,
-        tensorboard_log=my_config["run_id"]
+        tensorboard_log=f'runs/{my_config["run_id"]}'
     )
+
+    # TODO: Env for CPU training
+    # env = make_vec_env(make_env, n_envs=8, vec_env_cls=SubprocVecEnv)
+    # model = A2C(
+    #     policy=my_config["policy_network"],
+    #     env=env,
+    #     learning_rate=my_config["learning_rate"],
+    #     gamma=my_config["gamma"],
+    #     n_steps=my_config["n_steps"],
+    #     # clip_range=my_config["clip_range"],
+    #     # batch_size=my_config["batch_size"],
+    #     verbose=1,
+    #     # device='cpu',
+    #     tensorboard_log=f'runs/{my_config["run_id"]}'
+    # )
     train(env, model, my_config)
