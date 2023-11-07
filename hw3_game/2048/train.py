@@ -40,29 +40,15 @@ def unstack(layered, layers=16):
     flat = torch.sum(flat * representation, axis=-1)
     return flat
 
-class RotConv(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, length: int):
-        super().__init__()
-
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=(1, length))
-
-    def forward(self, x):
-        x1: Tensor = self.conv(x)
-        x2: Tensor = torch.rot90(
-            self.conv(torch.rot90(x, k=1, dims=(2, 3))), k=-1, dims=(2, 3)
-        )
-
-        return (x1, x2)
-
 class FeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space):
         # Hardcoded feature dim for other parts of the code
         # super().__init__(observation_space, features_dim=8448 + 48 + 8)
-        super().__init__(observation_space, features_dim=256 + 48 + 8)
+        super().__init__(observation_space, features_dim=64 + 256 + 48 + 8)
 
         # 3x3 conv, 2x2 conv
-        # self.conv1 = nn.Conv2d(16, 128, kernel_size=3)
-        # self.conv2 = nn.Conv2d(128, 256, kernel_size=2)
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3)
+        self.conv2 = nn.Conv2d(16, 64, kernel_size=2)
 
         self.relu = nn.ReLU()
 
@@ -102,13 +88,13 @@ class FeatureExtractor(BaseFeaturesExtractor):
         )                                                                   # dim: (n, 48 + 8)     , rng: {0, 1}
 
         # * Learnable features
-        # x = self.conv1(x)
-        # x = self.relu(x)
+        x1 = self.conv1(x)
+        x1 = self.relu(x1)
 
-        # x = self.conv2(x)
-        # x = self.relu(x)
+        x2 = self.conv2(x1)
+        x2 = self.relu(x2)
 
-        return torch.cat((x.flatten(start_dim=1), f), dim=1)
+        return torch.cat((x2.flatten(start_dim=1), x.flatten(start_dim=1), f), dim=1)
 
 class PolicyNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
@@ -126,8 +112,8 @@ def clip_range(current_progress_remaining: float) -> float:
 now = datetime.now().strftime("%Y%m%d-%H%M%S")
 my_config = {
     # Experiments
-    "run_id": "PPOv26",
-    "save_path": "models/PPOv26",
+    "run_id": "PPOv27",
+    "save_path": "models/PPOv27",
 
     # Hyperparameters
     "algorithm": PPO,
