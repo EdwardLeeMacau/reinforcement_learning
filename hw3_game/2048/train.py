@@ -88,7 +88,7 @@ class FeatureExtractor(BaseFeaturesExtractor):
         )                                                                   # dim: (n, 48 + 8)     , rng: {0, 1}
 
         # * Learnable features
-        x1 = self.conv1(x)
+        x1 = self.conv1(flat.unsqueeze(1) / 17)
         x1 = self.relu(x1)
 
         x2 = self.conv2(x1)
@@ -147,16 +147,6 @@ def train(env, model: BaseAlgorithm, config: Dict):
         model.learn(
             total_timesteps=config["timesteps_per_epoch"],
             reset_num_timesteps=False,
-            # callback=EvalCallback(
-            #     eval_env=env,
-            #     eval_freq=config["log_interval"],
-            #     n_eval_episodes=config["eval_episode_num"],
-            #     deterministic=True,
-            #     render=True,
-            #     # eval_episodic_rewards=True,
-            #     verbose=1,
-            #     # best_model_save_path=config["save_path"],
-            # ),
         )
 
         ### Evaluation

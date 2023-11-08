@@ -76,12 +76,22 @@ if __name__ == "__main__":
     x = np.arange(10) + 1
     y = [c[2 ** i] for i in x]
 
+    plt.figure(dpi=300)
     plt.bar(x, y)
     plt.xticks(x, 2 ** x)
     plt.xlabel("Best tile")
     plt.ylabel("Fequency")
     plt.title("Best tile distribution")
     plt.savefig("best_tile.png")
+    plt.clf()
+
+    plt.figure(dpi=300)
+    plt.hist(score, bins=20)
+    plt.xlabel("Score")
+    plt.ylabel("Fequency")
+    plt.title("Score distribution")
+    plt.savefig("score.png")
+    plt.clf()
 
     print("Avg_score:  ", np.sum(score)/eval_num)
     print("Avg_highest:", np.sum(highest)/eval_num)
