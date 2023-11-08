@@ -96,6 +96,7 @@ class GridWorld:
         self._step_count = 0
         self._maze = np.array([])
         self._state_list = []
+        self._state_dict = {}
         self._current_state = 0
         self.max_step = max_step
         self.maze_name = os.path.split(maze_file)[1].replace(".txt", "").capitalize()
@@ -182,6 +183,7 @@ class GridWorld:
         for i in range(self._maze.shape[0]):
             for j in range(self._maze.shape[1]):
                 if self._maze[i, j] != 1:
+                    self._state_dict[(i, j)] = len(self._state_list)
                     self._state_list.append((i, j))
 
     def get_current_state(self) -> int:
@@ -451,10 +453,13 @@ class GridWorld:
         # Leave goal state  => goal reward
         # Leave trap state  => trap reward
         # Leave exit state  => exit reward
-        # Leave bait state  => bait reward, bait step penalty for future steps
+        # Enter bait state  => bait reward
+        # Leave bait state  => step reward is reduced by bait step penalty
         # Enter lava state  => lava reward
         reward, done = 0, False
         match self._get_state(curr_state_coord):
+            case 0: # EMPTY
+                reward, done = self.step_reward, False
             case 2: # GOAL
                 reward, done = self._goal_reward, True
             case 3: # TRAP
@@ -467,7 +472,7 @@ class GridWorld:
             case 6: # KEY
                 self.open_door()
                 reward, done = self.step_reward, False
-            case _:
+            case _: # LAVA, PORTAL
                 reward, done = self.step_reward, False
 
         match self._get_state(next_state_coord):
@@ -479,7 +484,7 @@ class GridWorld:
                 pass
 
         truncated = (self._step_count >= self.max_step)
-        self._current_state = self._state_list.index(next_state_coord)
+        self._current_state = self._state_dict[next_state_coord]
         offset = len(self._state_list) if self._is_opened else 0
         return self._current_state + offset, reward, done, truncated
 
