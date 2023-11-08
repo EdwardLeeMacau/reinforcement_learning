@@ -112,8 +112,8 @@ def clip_range(current_progress_remaining: float) -> float:
 now = datetime.now().strftime("%Y%m%d-%H%M%S")
 my_config = {
     # Experiments
-    "run_id": "PPOv28",
-    "save_path": "models/PPOv28",
+    "run_id": "PPOv29",
+    "save_path": "models/PPOv29",
 
     # Hyperparameters
     "algorithm": PPO,

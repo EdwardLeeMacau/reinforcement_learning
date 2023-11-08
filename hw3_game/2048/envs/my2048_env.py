@@ -65,7 +65,7 @@ class My2048Env(gym.Env):
         self.observation_space = spaces.Box(0, 1, (layers, self.w, self.h), dtype=int)
 
         # TODO: Set negative reward (penalty) for illegal moves (optional)
-        self.set_illegal_move_reward(-8.)
+        self.set_illegal_move_reward(-32.)
 
         self.set_max_tile(None)
 
