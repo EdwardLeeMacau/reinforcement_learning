@@ -73,7 +73,7 @@ if __name__ == "__main__":
     ### Plot histogram
     c = Counter(highest)
 
-    x = np.arange(10) + 1
+    x = np.arange(11) + 1
     y = [c[2 ** i] for i in x]
 
     plt.figure(dpi=300)
