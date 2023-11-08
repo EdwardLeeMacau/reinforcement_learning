@@ -44,7 +44,7 @@ class FeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space):
         # Hardcoded feature dim for other parts of the code
         # super().__init__(observation_space, features_dim=8448 + 48 + 8)
-        super().__init__(observation_space, features_dim=64 + 256 + 48 + 8)
+        super().__init__(observation_space, features_dim=256 + 48 + 8)
 
         # 3x3 conv, 2x2 conv
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3)
@@ -88,13 +88,13 @@ class FeatureExtractor(BaseFeaturesExtractor):
         )                                                                   # dim: (n, 48 + 8)     , rng: {0, 1}
 
         # * Learnable features
-        x1 = self.conv1(flat.unsqueeze(1) / 17)
-        x1 = self.relu(x1)
+        # x1 = self.conv1(flat.unsqueeze(1) / 17)
+        # x1 = self.relu(x1)
 
-        x2 = self.conv2(x1)
-        x2 = self.relu(x2)
+        # x2 = self.conv2(x1)
+        # x2 = self.relu(x2)
 
-        return torch.cat((x2.flatten(start_dim=1), x.flatten(start_dim=1), f), dim=1)
+        return torch.cat((x.flatten(start_dim=1), f), dim=1)
 
 class PolicyNetwork(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
@@ -112,8 +112,8 @@ def clip_range(current_progress_remaining: float) -> float:
 now = datetime.now().strftime("%Y%m%d-%H%M%S")
 my_config = {
     # Experiments
-    "run_id": "PPOv27",
-    "save_path": "models/PPOv27",
+    "run_id": "PPOv28",
+    "save_path": "models/PPOv28",
 
     # Hyperparameters
     "algorithm": PPO,
@@ -121,14 +121,14 @@ my_config = {
 
     "learning_rate": 0.0003,                    # Learning rate
     "n_epochs": 20,                             # Number of steps to optimize
-    "n_steps": 512,                             # Number of sample steps per update
+    "n_steps": 2048,                            # Number of sample steps per update
     "clip_range": 0.2,                          # PPO clip range
     "batch_size": 64,                           # Mini-batch size
 
     "gamma": 0.99,                              # MDP discount factor
     "epoch_num": 1000,
     "log_interval": 10000,                      # Log interval
-    "timesteps_per_epoch": 20480,
+    "timesteps_per_epoch": 81920,
     "eval_episode_num": 10,
 }
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # )
 
     # TODO: Parallelize training envs
-    train_env = DummyVecEnv([make_env for _ in range(8)])
+    train_env = DummyVecEnv([make_env for _ in range(32)])
     env = DummyVecEnv([make_env])
 
     # Create model from loaded config and train
