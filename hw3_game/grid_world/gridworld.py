@@ -63,7 +63,6 @@ class GridWorld:
         10: "A",
     }
 
-    # @pysnooper.snoop("gridworld.log", color=False)
     def __init__(
         self,
         maze_file: str,
@@ -451,7 +450,6 @@ class GridWorld:
         # Leave exit state  => exit reward
         # Leave bait state  => bait reward, bait step penalty for future steps
         # Enter lava state  => lava reward
-        bait_penalty = self._bait_step_penalty if self._is_baited else 0
         reward, done = 0, False
         if self._is_goal_state(curr_state_coord):
             reward, done = self._goal_reward, True
@@ -461,21 +459,23 @@ class GridWorld:
             reward, done = self._exit_reward, True
         elif self._is_bait_state(curr_state_coord):
             self.bite()
-            reward, done = self._step_reward + self._bait_reward, False
-        elif self._is_lava_state(next_state_coord):
-            reward, done = self._trap_reward, True
+            reward, done = self.step_reward, False
         elif self._is_key_state(curr_state_coord):
             self.open_door()
-            reward, done = self._step_reward + bait_penalty, False
+            reward, done = self.step_reward, False
         else:
-            reward, done = self._step_reward + bait_penalty, False
+            reward, done = self.step_reward, False
+
+        if self._is_lava_state(next_state_coord):
+            reward, done = self.step_reward, True
+        elif self._is_bait_state(next_state_coord):
+            reward, done = self._bait_reward, False
 
         truncated = (self._step_count >= self.max_step)
         self._current_state = self._state_list.index(next_state_coord)
         offset = len(self._state_list) if self._is_opened else 0
         return self._current_state + offset, reward, done, truncated
 
-    # @pysnooper.snoop()
     def reset(self) -> int:
         """Reset the environment
 
