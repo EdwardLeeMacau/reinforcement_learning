@@ -236,6 +236,9 @@ class GridWorld:
     # State checker function #
     ##########################
 
+    def _get_state(self, state_coord: tuple) -> int:
+        return self._maze[state_coord[0], state_coord[1]]
+
     def _is_valid_state(self, state_coord: tuple) -> bool:
         """Check if the state is valid (within the maze and not a wall)
         Door state is not valid state.
@@ -451,25 +454,29 @@ class GridWorld:
         # Leave bait state  => bait reward, bait step penalty for future steps
         # Enter lava state  => lava reward
         reward, done = 0, False
-        if self._is_goal_state(curr_state_coord):
-            reward, done = self._goal_reward, True
-        elif self._is_trap_state(curr_state_coord):
-            reward, done = self._trap_reward, True
-        elif self._is_exit_state(curr_state_coord):
-            reward, done = self._exit_reward, True
-        elif self._is_bait_state(curr_state_coord):
-            self.bite()
-            reward, done = self.step_reward, False
-        elif self._is_key_state(curr_state_coord):
-            self.open_door()
-            reward, done = self.step_reward, False
-        else:
-            reward, done = self.step_reward, False
+        match self._get_state(curr_state_coord):
+            case 2: # GOAL
+                reward, done = self._goal_reward, True
+            case 3: # TRAP
+                reward, done = self._trap_reward, True
+            case 5: # EXIT
+                reward, done = self._exit_reward, True
+            case 8: # BAIT
+                self.bite()
+                reward, done = self.step_reward, False
+            case 6: # KEY
+                self.open_door()
+                reward, done = self.step_reward, False
+            case _:
+                reward, done = self.step_reward, False
 
-        if self._is_lava_state(next_state_coord):
-            reward, done = self.step_reward, True
-        elif self._is_bait_state(next_state_coord):
-            reward, done = self._bait_reward, False
+        match self._get_state(next_state_coord):
+            case 4: # LAVA
+                reward, done = self.step_reward, True
+            case 8: # BAIT
+                reward, done = self._bait_reward, False
+            case _:
+                pass
 
         truncated = (self._step_count >= self.max_step)
         self._current_state = self._state_list.index(next_state_coord)
