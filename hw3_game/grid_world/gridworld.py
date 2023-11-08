@@ -98,6 +98,7 @@ class GridWorld:
         self._state_list = []
         self._state_dict = {}
         self._current_state = 0
+        self._offset = 0
         self.max_step = max_step
         self.maze_name = os.path.split(maze_file)[1].replace(".txt", "").capitalize()
         self._read_maze(maze_file)
@@ -183,8 +184,9 @@ class GridWorld:
         for i in range(self._maze.shape[0]):
             for j in range(self._maze.shape[1]):
                 if self._maze[i, j] != 1:
-                    self._state_dict[(i, j)] = len(self._state_list)
                     self._state_list.append((i, j))
+
+        self._state_dict = { elem: i for i, elem in enumerate(self._state_list) }
 
     def get_current_state(self) -> int:
         """Return the current state
@@ -379,6 +381,7 @@ class GridWorld:
     def close_door(self):
         if self._door_state is None:
             return
+        self._offset = 0
         self._maze[self._state_list[self._door_state][0],
                    self._state_list[self._door_state][1]] = self.OBJECT_TO_INDEX["DOOR"]
         self.render_maze()
@@ -386,6 +389,7 @@ class GridWorld:
     def open_door(self):
         if self._door_state is None:
             return
+        self._offset = len(self._state_list)
         self._maze[self._state_list[self._door_state][0],
                    self._state_list[self._door_state][1]] = self.OBJECT_TO_INDEX["EMPTY"]
         self.render_maze()
@@ -456,10 +460,10 @@ class GridWorld:
         # Enter bait state  => bait reward
         # Leave bait state  => step reward is reduced by bait step penalty
         # Enter lava state  => lava reward
-        reward, done = 0, False
+        reward, done = self.step_reward, False
         match self._get_state(curr_state_coord):
             case 0: # EMPTY
-                reward, done = self.step_reward, False
+                pass
             case 2: # GOAL
                 reward, done = self._goal_reward, True
             case 3: # TRAP
@@ -468,12 +472,11 @@ class GridWorld:
                 reward, done = self._exit_reward, True
             case 8: # BAIT
                 self.bite()
-                reward, done = self.step_reward, False
+                reward = self.step_reward
             case 6: # KEY
                 self.open_door()
-                reward, done = self.step_reward, False
-            case _: # LAVA, PORTAL
-                reward, done = self.step_reward, False
+            case _: # PORTAL
+                pass
 
         match self._get_state(next_state_coord):
             case 4: # LAVA
@@ -485,8 +488,7 @@ class GridWorld:
 
         truncated = (self._step_count >= self.max_step)
         self._current_state = self._state_dict[next_state_coord]
-        offset = len(self._state_list) if self._is_opened else 0
-        return self._current_state + offset, reward, done, truncated
+        return self._current_state + self._offset, reward, done, truncated
 
     def reset(self) -> int:
         """Reset the environment
