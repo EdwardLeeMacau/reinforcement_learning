@@ -96,7 +96,9 @@ class GridWorld:
         self._step_count = 0
         self._maze = np.array([])
         self._state_list = []
+        self._state_dict = {}
         self._current_state = 0
+        self._offset = 0
         self.max_step = max_step
         self.maze_name = os.path.split(maze_file)[1].replace(".txt", "").capitalize()
         self._read_maze(maze_file)
@@ -184,6 +186,8 @@ class GridWorld:
                 if self._maze[i, j] != 1:
                     self._state_list.append((i, j))
 
+        self._state_dict = { elem: i for i, elem in enumerate(self._state_list) }
+
     def get_current_state(self) -> int:
         """Return the current state
 
@@ -235,6 +239,9 @@ class GridWorld:
     ##########################
     # State checker function #
     ##########################
+
+    def _get_state(self, state_coord: tuple) -> int:
+        return self._maze[state_coord[0], state_coord[1]]
 
     def _is_valid_state(self, state_coord: tuple) -> bool:
         """Check if the state is valid (within the maze and not a wall)
@@ -374,6 +381,7 @@ class GridWorld:
     def close_door(self):
         if self._door_state is None:
             return
+        self._offset = 0
         self._maze[self._state_list[self._door_state][0],
                    self._state_list[self._door_state][1]] = self.OBJECT_TO_INDEX["DOOR"]
         self.render_maze()
@@ -381,6 +389,7 @@ class GridWorld:
     def open_door(self):
         if self._door_state is None:
             return
+        self._offset = len(self._state_list)
         self._maze[self._state_list[self._door_state][0],
                    self._state_list[self._door_state][1]] = self.OBJECT_TO_INDEX["EMPTY"]
         self.render_maze()
@@ -428,6 +437,7 @@ class GridWorld:
             next_state_coord = state_coord
         return tuple(next_state_coord)
 
+    # @pysnooper.snoop()
     def step(self, action: int) -> tuple:
         """Take a step in the environment
         Refer to GridWorld in homework 1 and homework 2 implement the step function using the helper function
@@ -439,7 +449,46 @@ class GridWorld:
             tuple: next_state, reward, done, truncation
         """
         # TODO implement the step function here
-        raise NotImplementedError
+        curr_state_coord = self._state_list[self._current_state]
+        next_state_coord = self._get_next_state(curr_state_coord, action)
+
+        # Calculate the reward, by default it is the step reward.
+        # Step reward       => every transition
+        # Leave goal state  => goal reward
+        # Leave trap state  => trap reward
+        # Leave exit state  => exit reward
+        # Enter bait state  => bait reward
+        # Leave bait state  => step reward is reduced by bait step penalty
+        # Enter lava state  => lava reward
+        reward, done = self.step_reward, False
+        match self._get_state(curr_state_coord):
+            case 0: # EMPTY
+                pass
+            case 2: # GOAL
+                reward, done = self._goal_reward, True
+            case 3: # TRAP
+                reward, done = self._trap_reward, True
+            case 5: # EXIT
+                reward, done = self._exit_reward, True
+            case 8: # BAIT
+                self.bite()
+                reward = self.step_reward
+            case 6: # KEY
+                self.open_door()
+            case _: # PORTAL
+                pass
+
+        match self._get_state(next_state_coord):
+            case 4: # LAVA
+                reward, done = self.step_reward, True
+            case 8: # BAIT
+                reward, done = self._bait_reward, False
+            case _:
+                pass
+
+        truncated = (self._step_count >= self.max_step)
+        self._current_state = self._state_dict[next_state_coord]
+        return self._current_state + self._offset, reward, done, truncated
 
     def reset(self) -> int:
         """Reset the environment
@@ -448,7 +497,14 @@ class GridWorld:
             int: initial state
         """
         # TODO implement the reset function here
-        raise NotImplementedError
+        self._current_state = np.random.choice(self._init_states)
+
+        # Reset all metadata in the environment
+        self._step_count = 0
+        self.close_door()
+        self.place_bait()
+
+        return self._current_state
 
     #############################
     # Visualize the environment #

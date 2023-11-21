@@ -1,0 +1,13 @@
+# Runs
+example
+runs
+wandb
+
+# Model Checkpoint
+models
+
+# Log files
+.log.*
+.log
+*.png
+
